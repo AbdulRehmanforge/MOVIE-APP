@@ -1,263 +1,371 @@
-import React, {useEffect, useState, useRef } from 'react'
-import Search from './components/search.jsx'
-import Spinner from './components/spinner.jsx'
-import MovieCard from './components/moviecard.jsx'
-import Navigation from './components/Navigation.jsx'
-import { getTrendingMovies, updateSearchCount } from './appwrite.js'
+import React, { useEffect, useMemo, useState } from 'react';
+import AuthPanel from './components/AuthPanel.jsx';
+import Navigation from './components/Navigation.jsx';
+import ProfileSelector from './components/ProfileSelector.jsx';
+import HeroCarousel from './components/HeroCarousel.jsx';
+import MovieRow from './components/MovieRow.jsx';
+import MovieCard from './components/moviecard.jsx';
+import FilterBar from './components/FilterBar.jsx';
+import MovieModal from './components/MovieModal.jsx';
+import SkeletonRow from './components/ui/SkeletonRow.jsx';
+import { getCurrentUser, loginUser, logoutUser, registerUser } from './utils/auth.js';
+import { discoverMovies, getGenreMap, getHomeRows, getSearchSuggestions } from './services/tmdb.js';
+import './App.css';
 
-const API_BASE_URL = 'https://api.themoviedb.org/3';
-const API_KEY = import.meta.env.VITE_TMDB_API_KEY;
+const makeProfileKey = (email) => `hd_profile_${email}`;
+const makeWatchlistKey = (email, profileId) => `hd_watchlist_${email}_${profileId}`;
+const makeHistoryKey = (email, profileId) => `hd_history_${email}_${profileId}`;
 
-const App =() =>{
-const[searchTerm, setSearchTerm] =useState('');
-const[debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-const[errorMessage, setErrorMessage] = useState('');
-const[movielist, setMovielist] = useState([]);
-const[trendingMovies, setTrendingMovies] = useState([]);
-const[loading, setLoading] = useState(false);
-const[activeTab, setActiveTab] = useState('home');
-const[selectedGenre, setSelectedGenre] = useState('');
-const[selectedCountry, setSelectedCountry] = useState('');
-const isInitialMount = useRef(true);
-const moviesSectionRef = useRef(null);
+const VIEW_TABS = [
+  { key: 'home', label: 'Home' },
+  { key: 'movies', label: 'Movies' },
+  { key: 'tv', label: 'TV Shows' },
+  { key: 'my-list', label: 'My List' },
+  { key: 'new-popular', label: 'New & Popular' },
+];
 
-const fetchMovies = async (query= '') => {
-    setLoading(true);
-    setErrorMessage('');
+const App = () => {
+  const [user, setUser] = useState(() => getCurrentUser());
+  const [profiles, setProfiles] = useState([]);
+  const [activeProfile, setActiveProfile] = useState(null);
+  const [kidsMode, setKidsMode] = useState(false);
+  const [activeView, setActiveView] = useState('home');
 
-  try {
-    let endpoint = '';
+  const [rows, setRows] = useState([]);
+  const [loadingRows, setLoadingRows] = useState(true);
+  const [rowPages, setRowPages] = useState({});
 
-    switch (activeTab) {
-      case 'home':
-        endpoint = query
-          ? `${API_BASE_URL}/search/movie?query=${encodeURIComponent(query)}`
-          : `${API_BASE_URL}/discover/movie?sort_by=popularity.desc`;
-        break;
-      case 'genres':
-        if (selectedGenre) {
-          const genreIds = {
-            'Action': 28,
-            'Adventure': 12,
-            'Animation': 16,
-            'Comedy': 35,
-            'Crime': 80,
-            'Documentary': 99,
-            'Drama': 18,
-            'Family': 10751,
-            'Fantasy': 14,
-            'History': 36,
-            'Horror': 27,
-            'Music': 10402,
-            'Mystery': 9648,
-            'Romance': 10749,
-            'Science Fiction': 878,
-            'TV Movie': 10770,
-            'Thriller': 53,
-            'War': 10752,
-            'Western': 37
-          };
+  const [query, setQuery] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [genres, setGenres] = useState([]);
+  const [filters, setFilters] = useState({ genre: '', year: '', minRating: '', sortBy: 'popularity.desc' });
+  const [discoverPage, setDiscoverPage] = useState(1);
+  const [catalog, setCatalog] = useState([]);
+  const [catalogTotalPages, setCatalogTotalPages] = useState(1);
 
-          const genreId = genreIds[selectedGenre];
+  const [watchlist, setWatchlist] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [selectedMovie, setSelectedMovie] = useState(null);
 
-          if (genreId) {
-            endpoint = `${API_BASE_URL}/discover/movie?with_genres=${genreId}&sort_by=popularity.desc`;
-          } else {
-            endpoint = `${API_BASE_URL}/discover/movie?sort_by=popularity.desc`;
-          }
-        } else {
-          endpoint = `${API_BASE_URL}/discover/movie?sort_by=popularity.desc`;
-        }
-        break;
-      case 'countries':
-        endpoint = `${API_BASE_URL}/discover/movie?sort_by=popularity.desc`;
-        break;
-      case 'movies':
-        endpoint = `${API_BASE_URL}/discover/movie?sort_by=popularity.desc`;
-        break;
-      case 'tvseries':
-        endpoint = `${API_BASE_URL}/discover/tv?sort_by=popularity.desc`;
-        break;
-      case 'topimdb':
-        endpoint = `${API_BASE_URL}/discover/movie?sort_by=vote_average.desc&vote_count.gte=1000`;
-        break;
-      default:
-        endpoint = query
-          ? `${API_BASE_URL}/search/movie?query=${encodeURIComponent(query)}`
-          : `${API_BASE_URL}/discover/movie?sort_by=popularity.desc`;
-    }
+  const notifications = useMemo(() => {
+    const upcoming = rows.find((row) => row.key === 'new')?.movies.slice(0, 2) || [];
+    return upcoming.map((movie) => `${movie.title} just dropped`);
+  }, [rows]);
 
-    const response = await fetch(endpoint, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-        Authorization: `Bearer ${API_KEY}`
+  useEffect(() => {
+    if (!user) return;
+    const raw = localStorage.getItem(makeProfileKey(user.email));
+    const parsed = raw ? JSON.parse(raw) : [{ id: 'default', name: user.name || 'Main', isKids: false }];
+    setProfiles(parsed);
+  }, [user]);
+
+  useEffect(() => {
+    const loadInitial = async () => {
+      setLoadingRows(true);
+      try {
+        const [homeRows, genreMap] = await Promise.all([getHomeRows(1), getGenreMap()]);
+        setRows(homeRows);
+        setGenres(genreMap);
+        setRowPages(Object.fromEntries(homeRows.map((row) => [row.key, 1])));
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoadingRows(false);
       }
-    });
+    };
 
+    loadInitial();
+  }, []);
 
-    if (!response.ok) {
-      throw new Error('FAILED TO FETCH MOVIES');
+  useEffect(() => {
+    const loadSuggestions = async () => {
+      if (query.trim().length < 2) {
+        setSuggestions([]);
+        return;
+      }
+      const data = await getSearchSuggestions(query);
+      setSuggestions(data);
+    };
 
-    }
-    const data = await response.json();
-    
-    if(data.response === 'False'){
-      setErrorMessage(data.Error || 'Unable to fetch movies at this time.');
-      setMovielist([]);
-      return;
-    }
+    const timeout = setTimeout(loadSuggestions, 250);
+    return () => clearTimeout(timeout);
+  }, [query]);
 
-   setMovielist(data.results || []);
-   
-  if(query && data.results.length > 0){
-    await updateSearchCount(query, data.results[0]);
+  useEffect(() => {
+    const loadCatalog = async () => {
+      try {
+        const data = await discoverMovies({
+          query: query.trim(),
+          genre: filters.genre,
+          year: filters.year,
+          minRating: filters.minRating,
+          sortBy: filters.sortBy,
+          page: discoverPage,
+          kidsMode,
+        });
+
+        if (discoverPage === 1) {
+          setCatalog(data.results || []);
+        } else {
+          setCatalog((prev) => [...prev, ...(data.results || [])]);
+        }
+        setCatalogTotalPages(data.total_pages || 1);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    loadCatalog();
+  }, [filters, query, discoverPage, kidsMode]);
+
+  useEffect(() => {
+    setDiscoverPage(1);
+  }, [filters, query, kidsMode]);
+
+  useEffect(() => {
+    if (!user || !activeProfile) return;
+    const wlRaw = localStorage.getItem(makeWatchlistKey(user.email, activeProfile.id));
+    const hsRaw = localStorage.getItem(makeHistoryKey(user.email, activeProfile.id));
+    setWatchlist(wlRaw ? JSON.parse(wlRaw) : []);
+    setHistory(hsRaw ? JSON.parse(hsRaw) : []);
+    setKidsMode(activeProfile.isKids);
+  }, [user, activeProfile]);
+
+  const watchlistIds = useMemo(() => new Set(watchlist.map((movie) => movie.id)), [watchlist]);
+
+  const saveProfiles = (nextProfiles) => {
+    setProfiles(nextProfiles);
+    if (user) localStorage.setItem(makeProfileKey(user.email), JSON.stringify(nextProfiles));
+  };
+
+  const createProfile = (profile) => {
+    const next = [...profiles, { ...profile, id: crypto.randomUUID() }];
+    saveProfiles(next);
+  };
+
+  const toggleWatchlist = (movie) => {
+    if (!user || !activeProfile) return;
+    const exists = watchlistIds.has(movie.id);
+    const next = exists
+      ? watchlist.filter((item) => item.id !== movie.id)
+      : [{ id: movie.id, title: movie.title || movie.name, poster_path: movie.poster_path }, ...watchlist];
+    setWatchlist(next);
+    localStorage.setItem(makeWatchlistKey(user.email, activeProfile.id), JSON.stringify(next.slice(0, 100)));
+  };
+
+  const addHistory = (movie) => {
+    if (!user || !activeProfile) return;
+    const next = [{ id: movie.id, title: movie.title || movie.name, watchedAt: Date.now() }, ...history.filter((item) => item.id !== movie.id)].slice(0, 20);
+    setHistory(next);
+    localStorage.setItem(makeHistoryKey(user.email, activeProfile.id), JSON.stringify(next));
+  };
+
+  const handleLoadMoreRow = async (rowKey) => {
+    const current = rowPages[rowKey] || 1;
+    const nextPage = current + 1;
+    const freshRows = await getHomeRows(nextPage);
+    const nextRowData = freshRows.find((row) => row.key === rowKey);
+    if (!nextRowData) return;
+
+    setRows((prev) => prev.map((row) => (row.key === rowKey ? { ...row, movies: [...row.movies, ...nextRowData.movies] } : row)));
+    setRowPages((prev) => ({ ...prev, [rowKey]: nextPage }));
+  };
+
+  if (!user) {
+    return (
+      <AuthPanel
+        onLogin={(email, password) => setUser(loginUser(email, password))}
+        onRegister={(name, email, password) => setUser(registerUser(name, email, password))}
+      />
+    );
   }
 
-  } catch (error) {
-    console.error('Error fetching movies:', error);
-    setErrorMessage('Failed to fetch movies. Please try again later.');
-  } finally{
-    setLoading(false);
+  if (!activeProfile) {
+    return <ProfileSelector profiles={profiles} onSelectProfile={setActiveProfile} onCreateProfile={createProfile} />;
   }
-}
 
+  const historyIds = new Set(history.map((item) => item.id));
+  const personalized = history.length > 0
+    ? catalog.filter((movie) => !historyIds.has(movie.id)).slice(0, 12)
+    : catalog.slice(0, 12);
 
-useEffect(() => {
-  const timer = setTimeout(() => {
-    setDebouncedSearchTerm(searchTerm);
-  }, 50);
+  const movieRows = rows.filter((row) => !['drama', 'comedy', 'romance'].includes(row.key));
+  const tvRows = rows.filter((row) => ['drama', 'comedy', 'romance'].includes(row.key));
 
-  return () => clearTimeout(timer);
-}, [searchTerm]);
+  const renderRowSection = (rowList) => {
+    if (loadingRows) return <SkeletonRow />;
 
-useEffect(() => {
-  if (isInitialMount.current) {
-    isInitialMount.current = false;
-    fetchMovies(debouncedSearchTerm);
-  } else {
-    fetchMovies(debouncedSearchTerm);
-  }
-}, [debouncedSearchTerm, activeTab, selectedGenre, selectedCountry]);
+    return rowList.map((row) => (
+      <MovieRow
+        key={row.key}
+        title={row.label}
+        movies={row.movies}
+        watchlistIds={watchlistIds}
+        onToggleWatchlist={toggleWatchlist}
+        onAddHistory={addHistory}
+        onLoadMore={() => handleLoadMoreRow(row.key)}
+      />
+    ));
+  };
 
-const handleGenreSelect = (genre) => {
-  setSelectedGenre(genre);
-  setSelectedCountry('');
-  setSearchTerm('');
-  setActiveTab('genres');
-  fetchMovies('');
-  setTimeout(() => {
-    moviesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, 100);
-};
+  const renderHomeView = () => (
+    <>
+      <section className="special-row">
+        <h3>Because You Watched</h3>
+        <div className="row-scroll">
+          {personalized.map((movie) => (
+            <MovieCard
+              key={movie.id}
+              movie={movie}
+              onToggleWatchlist={toggleWatchlist}
+              inWatchlist={watchlistIds.has(movie.id)}
+              onAddHistory={addHistory}
+            />
+          ))}
+        </div>
+      </section>
+      {renderRowSection(rows)}
+    </>
+  );
 
-const handleCountrySelect = (country) => {
-  setSelectedCountry(country);
-  setSelectedGenre('');
-  setSearchTerm('');
-  setActiveTab('countries');
-  fetchMovies('');
-  setTimeout(() => {
-    moviesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, 100);
-};
+  const renderMoviesView = () => (
+    <>
+      <p className="page-description">Movie-first collections and full catalog browsing.</p>
+      {renderRowSection(movieRows)}
+      <section className="special-row">
+        <h3>Browse All Movies</h3>
+        <div className="catalog-grid">
+          {catalog.map((movie) => (
+            <MovieCard
+              key={movie.id}
+              movie={movie}
+              onToggleWatchlist={toggleWatchlist}
+              inWatchlist={watchlistIds.has(movie.id)}
+              onAddHistory={addHistory}
+            />
+          ))}
+        </div>
+      </section>
+    </>
+  );
 
-const handleTabChange = (tabId) => {
-  if (tabId !== 'genres' && tabId !== 'countries') {
-    setSelectedGenre('');
-    setSelectedCountry('');
-    setSearchTerm('');
-  }
-  setActiveTab(tabId);
-  fetchMovies('');
-  if (tabId !== 'home') {
-    setTimeout(() => {
-      moviesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 100);
-  }
-};
+  const renderTvView = () => (
+    <>
+      <p className="page-description">Drama, comedy, and romance sections grouped as TV-style browsing.</p>
+      {renderRowSection(tvRows)}
+    </>
+  );
 
-const loadTrendingMovies = async () => {
-  const trending = await getTrendingMovies(10);
-  setTrendingMovies(trending);
-};
+  const renderMyListView = () => (
+    <>
+      <section className="special-row">
+        <h3>My List</h3>
+        <div className="catalog-grid">
+          {watchlist.length === 0 ? <p className="empty-state">Your watchlist is empty.</p> : watchlist.map((movie) => (
+            <MovieCard
+              key={movie.id}
+              movie={movie}
+              onToggleWatchlist={toggleWatchlist}
+              inWatchlist={watchlistIds.has(movie.id)}
+              onAddHistory={addHistory}
+            />
+          ))}
+        </div>
+      </section>
+      <section className="special-row">
+        <h3>Continue Watching</h3>
+        <div className="row-scroll mini">
+          {history.length === 0 ? <p className="empty-state">No viewing history yet.</p> : history.map((movie) => (
+            <article key={movie.id} className="chip-card">{movie.title}</article>
+          ))}
+        </div>
+      </section>
+    </>
+  );
 
-useEffect(() => {
-  loadTrendingMovies();
-}, []);
+  const renderNewPopularView = () => (
+    <>
+      <section className="special-row">
+        <h3>New Releases</h3>
+        {renderRowSection(rows.filter((row) => row.key === 'new'))}
+      </section>
+      <section className="special-row">
+        <h3>Top Rated Right Now</h3>
+        {renderRowSection(rows.filter((row) => row.key === 'top'))}
+      </section>
+    </>
+  );
+
+  const viewMap = {
+    home: renderHomeView,
+    movies: renderMoviesView,
+    tv: renderTvView,
+    'my-list': renderMyListView,
+    'new-popular': renderNewPopularView,
+  };
 
   return (
-    <main>
-      <div className = "pattern"/>
-      <div className = "wrapper">
+    <main className="app-shell">
+      <Navigation
+        query={query}
+        onQueryChange={setQuery}
+        suggestions={suggestions}
+        onPickSuggestion={(item) => {
+          setQuery(item.title || item.name);
+          setSuggestions([]);
+          setActiveView('movies');
+        }}
+        activeProfile={activeProfile}
+        onLogout={() => {
+          logoutUser();
+          setUser(null);
+          setActiveProfile(null);
+        }}
+        kidsMode={kidsMode}
+        onToggleKidsMode={() => setKidsMode((prev) => !prev)}
+        notifications={notifications}
+        tabs={VIEW_TABS}
+        activeTab={activeView}
+        onTabChange={setActiveView}
+      />
 
-        <Navigation
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          onGenreSelect={handleGenreSelect}
-          onCountrySelect={handleCountrySelect}
-          onTabChange={handleTabChange}
-        />
+      <HeroCarousel movies={rows.find((row) => row.key === 'trending')?.movies.slice(0, 5) || []} onOpenMovie={setSelectedMovie} />
 
-        <header>
-          <img src="/movieposter.png.png" alt="/bg.png.png" />
-          <h1>Find <span className ="text-gradient">Movies</span> You will Enjoy Without the Hassle</h1>
-          <Search searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+      <section className="content-wrap">
+        <FilterBar genres={genres} filters={filters} onChange={setFilters} />
+        <header className="view-header">
+          <h2>{VIEW_TABS.find((tab) => tab.key === activeView)?.label}</h2>
         </header>
-
-        {trendingMovies.length > 0 && activeTab === 'home' && (
-          <section className="trending">
-            <h2>Trending Movies</h2>
-            <ul>
-              {trendingMovies.map((movie, index) => (
-                <li key={movie.$id}>
-                  <p>{index + 1}</p>
-                  <img src={movie.poster_url} alt={movie.title} />
-                </li>
+        {viewMap[activeView] ? viewMap[activeView]() : renderHomeView()}
+        {activeView !== 'movies' && (
+          <section className="special-row">
+            <h3>Browse All</h3>
+            <div className="catalog-grid">
+              {catalog.slice(0, 12).map((movie) => (
+                <MovieCard
+                  key={movie.id}
+                  movie={movie}
+                  onToggleWatchlist={toggleWatchlist}
+                  inWatchlist={watchlistIds.has(movie.id)}
+                  onAddHistory={addHistory}
+                />
               ))}
-            </ul>
+            </div>
           </section>
         )}
-        
+        <button
+          type="button"
+          className="load-more-btn"
+          disabled={discoverPage >= catalogTotalPages}
+          onClick={() => setDiscoverPage((prev) => prev + 1)}
+        >
+          {discoverPage >= catalogTotalPages ? 'No more titles' : 'Load More'}
+        </button>
+      </section>
 
-        <section className="all-movies" ref={moviesSectionRef}>
-          <h2 style={{ marginTop: '40px' }}>
-            {activeTab === 'home' && 'All Movies'}
-            {activeTab === 'genres' && (selectedGenre ? `${selectedGenre} Movies` : 'Select a Genre')}
-            {activeTab === 'countries' && (selectedCountry ? `Movies from ${selectedCountry}` : 'Select a Country')}
-            {activeTab === 'movies' && 'Popular Movies'}
-            {activeTab === 'tvseries' && 'TV Series'}
-            {activeTab === 'topimdb' && 'Top IMDb Movies'}
-          </h2>
-
-          {loading ? (
-            <Spinner />
-          ) : errorMessage ? (
-            <p className="error-message">{errorMessage}</p>
-          ) : (
-             <ul>
-              {movielist.map((movie) => (
-                <MovieCard key={movie.id} movie={movie} searchTerm={debouncedSearchTerm} isTV={activeTab === 'tvseries'} />
-              ))}
-             </ul>
-          )}
-
-        </section>
-
-
-
-
-
-
-        </div>
-
-
-    
-     
+      <MovieModal movie={selectedMovie} isOpen={Boolean(selectedMovie)} onClose={() => setSelectedMovie(null)} onAddHistory={addHistory} />
     </main>
-  )
-}
+  );
+};
 
-
-
-export default App
+export default App;
