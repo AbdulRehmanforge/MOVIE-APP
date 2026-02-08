@@ -1,91 +1,99 @@
-import React, { useState, memo, useCallback } from 'react';
-import { updateSearchCount } from '../appwrite.js';
+import React, { memo, useEffect, useRef, useState } from 'react';
 import MovieModal from './MovieModal.jsx';
+import { getMovieTrailer } from '../services/tmdb.js';
 
-const MovieCard = memo(({ movie, searchTerm = '', isTV = false }) => {
-    const { id, title, name, poster_path, release_date, first_air_date, vote_average, original_language } = movie;
-    const displayTitle = title || name;
-    const displayDate = release_date || first_air_date;
-    const [isHovered, setIsHovered] = useState(false);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [imageLoaded, setImageLoaded] = useState(false);
-    
-    const handleClick = useCallback(() => {
-        updateSearchCount(searchTerm, movie);
-        setIsModalOpen(true);
-    }, [searchTerm, movie]);
+const MovieCard = memo(({ movie, onToggleWatchlist, inWatchlist, onAddHistory, progress = 0, onProgressChange }) => {
+  const [open, setOpen] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [trailerKey, setTrailerKey] = useState(null);
+  const [loadingTrailer, setLoadingTrailer] = useState(false);
+  const [autoStartModal, setAutoStartModal] = useState(false);
+  const hoverTimeoutRef = useRef(null);
+  const title = movie.title || movie.name;
 
-    const handleWatch = useCallback(() => {
-        const streamingUrl = `https://www.google.com/search?q=${encodeURIComponent(`${displayTitle} ${isTV ? 'tv series' : 'movie'} streaming online free`)}`;
-        window.open(streamingUrl, '_blank');
-    }, [displayTitle, isTV]);
+  useEffect(() => () => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+  }, []);
 
-    const handleCloseModal = useCallback(() => {
-        setIsModalOpen(false);
-    }, []);
+  const handleMouseEnter = () => {
+    setHovered(true);
+    if (trailerKey || loadingTrailer) return;
+    hoverTimeoutRef.current = setTimeout(async () => {
+      setLoadingTrailer(true);
+      try {
+        const key = await getMovieTrailer(movie.id);
+        setTrailerKey(key);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoadingTrailer(false);
+      }
+    }, 350);
+  };
 
-    const handleMouseEnter = useCallback(() => setIsHovered(true), []);
-    const handleMouseLeave = useCallback(() => setIsHovered(false), []);
-    const handleImageLoad = useCallback(() => setImageLoaded(true), []);
+  const handleMouseLeave = () => {
+    setHovered(false);
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+  };
 
-    return (
-        <>
-            <div 
-                className="movie-card" 
-                onClick={handleClick} 
-                onMouseEnter={handleMouseEnter}
-                onMouseLeave={handleMouseLeave}
+  return (
+    <>
+      <article className={`movie-card ${hovered ? 'is-hovered' : ''}`} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} onClick={() => { setAutoStartModal(progress > 1 && progress < 100); setOpen(true); }}>
+        {hovered && trailerKey ? (
+          <iframe
+            className="card-preview"
+            title={`${title} preview`}
+            src={`https://www.youtube.com/embed/${trailerKey}?autoplay=1&mute=1&controls=0&playsinline=1&rel=0`}
+            allow="autoplay; encrypted-media"
+            loading="lazy"
+          />
+        ) : (
+          <img src={movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : '/movieposter.png.png'} alt={title} loading="lazy" />
+        )}
+
+        {progress > 0 && progress < 100 && (
+          <div className="card-progress"><span style={{ width: `${progress}%` }} /></div>
+        )}
+
+        <div className="card-overlay">
+          <h4>{title}</h4>
+          <p>⭐ {movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A'} • {(movie.release_date || '').slice(0, 4)}</p>
+          <div className="card-actions">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setAutoStartModal(true);
+                setOpen(true);
+              }}
             >
-                <img 
-                    src={poster_path ? `https://image.tmdb.org/t/p/w500${poster_path}` : '/movieposter.png.png'} 
-                    alt={displayTitle}
-                    loading="lazy"
-                    onLoad={handleImageLoad}
-                    style={{ opacity: imageLoaded ? 1 : 0.7, transition: 'opacity 0.3s ease' }}
-                />
-                
-                <div className="play-overlay">
-                    <button 
-                        className="play-button"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            handleClick();
-                        }}
-                        aria-label={`Watch ${displayTitle}`}
-                    >
-                        <svg 
-                            width="24" 
-                            height="24" 
-                            viewBox="0 0 24 24" 
-                            fill="white"
-                            className="ml-1"
-                        >
-                            <path d="M8 5v14l11-7z"/>
-                        </svg>
-                    </button>
-                </div>
-                
-                <h3>{displayTitle}</h3>
-                <div className="content">
-                    <div className="rating">
-                        <img src="/star.png" alt="star" />
-                        <p>{vote_average ? vote_average.toFixed(1) : 'N/A'}</p>
-                    </div>
-                    <span>•</span>
-                    <p className="lang">{original_language}</p>
-                    <span>•</span>
-                    <p className="year">{displayDate ? displayDate.split('-')[0] : 'N/A'}</p>
-                </div>
-            </div>
-
-            <MovieModal
-                movie={movie}
-                isOpen={isModalOpen}
-                onClose={handleCloseModal}
-                onWatch={handleWatch}
-            />
-        </>
-    )
+              {progress > 1 && progress < 100 ? `▶ Resume ${Math.round(progress)}%` : '▶ Play'}
+            </button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleWatchlist(movie);
+              }}
+            >
+              {inWatchlist ? '✓ My List' : '+ My List'}
+            </button>
+          </div>
+        </div>
+      </article>
+      <MovieModal
+        movie={movie}
+        isOpen={open}
+        onClose={() => setOpen(false)}
+        onAddHistory={onAddHistory}
+        onToggleWatchlist={onToggleWatchlist}
+        inWatchlist={inWatchlist}
+        progress={progress}
+        onProgressChange={onProgressChange}
+        autoStart={autoStartModal}
+      />
+    </>
+  );
 });
 
 MovieCard.displayName = 'MovieCard';
