@@ -52,6 +52,12 @@ const App = () => {
     return upcoming.map((movie) => `${movie.title} just dropped`);
   }, [rows]);
 
+  const progressMap = useMemo(() => Object.fromEntries(history.map((item) => [item.id, item.progress || 0])), [history]);
+  const continueWatching = useMemo(
+    () => history.filter((item) => (item.progress || 0) > 0 && (item.progress || 0) < 100),
+    [history]
+  );
+
   useEffect(() => {
     if (!user) return;
     const raw = localStorage.getItem(makeProfileKey(user.email));
@@ -148,14 +154,41 @@ const App = () => {
     const exists = watchlistIds.has(movie.id);
     const next = exists
       ? watchlist.filter((item) => item.id !== movie.id)
-      : [{ id: movie.id, title: movie.title || movie.name, poster_path: movie.poster_path }, ...watchlist];
+      : [{ id: movie.id, title: movie.title || movie.name, poster_path: movie.poster_path, vote_average: movie.vote_average, release_date: movie.release_date }, ...watchlist];
     setWatchlist(next);
     localStorage.setItem(makeWatchlistKey(user.email, activeProfile.id), JSON.stringify(next.slice(0, 100)));
   };
 
-  const addHistory = (movie) => {
+  const addHistory = (movie, progress = 5) => {
     if (!user || !activeProfile) return;
-    const next = [{ id: movie.id, title: movie.title || movie.name, watchedAt: Date.now() }, ...history.filter((item) => item.id !== movie.id)].slice(0, 20);
+    const next = [{
+      id: movie.id,
+      title: movie.title || movie.name,
+      poster_path: movie.poster_path,
+      vote_average: movie.vote_average,
+      release_date: movie.release_date,
+      progress,
+      watchedAt: Date.now(),
+    }, ...history.filter((item) => item.id !== movie.id)].slice(0, 30);
+    setHistory(next);
+    localStorage.setItem(makeHistoryKey(user.email, activeProfile.id), JSON.stringify(next));
+  };
+
+  const updateProgress = (movie, progress) => {
+    if (!movie?.id || !user || !activeProfile) return;
+    const clamped = Math.max(0, Math.min(100, progress));
+    const existing = history.find((item) => item.id === movie.id);
+    const payload = {
+      id: movie.id,
+      title: movie.title || movie.name || existing?.title,
+      poster_path: movie.poster_path || existing?.poster_path,
+      vote_average: movie.vote_average || existing?.vote_average,
+      release_date: movie.release_date || existing?.release_date,
+      progress: clamped,
+      watchedAt: Date.now(),
+    };
+
+    const next = [payload, ...history.filter((item) => item.id !== movie.id)].slice(0, 30);
     setHistory(next);
     localStorage.setItem(makeHistoryKey(user.email, activeProfile.id), JSON.stringify(next));
   };
@@ -204,12 +237,46 @@ const App = () => {
         onToggleWatchlist={toggleWatchlist}
         onAddHistory={addHistory}
         onLoadMore={() => handleLoadMoreRow(row.key)}
+        progressMap={progressMap}
+        onProgressChange={updateProgress}
       />
     ));
   };
 
   const renderHomeView = () => (
     <>
+      <section className="special-row">
+        <h3>My List</h3>
+        <div className="row-scroll">
+          {watchlist.length === 0 ? <p className="empty-state">Your watchlist is empty.</p> : watchlist.map((movie) => (
+            <MovieCard
+              key={movie.id}
+              movie={movie}
+              onToggleWatchlist={toggleWatchlist}
+              inWatchlist={watchlistIds.has(movie.id)}
+              onAddHistory={addHistory}
+              progress={progressMap[movie.id] || 0}
+              onProgressChange={updateProgress}
+            />
+          ))}
+        </div>
+      </section>
+      <section className="special-row">
+        <h3>Continue Watching</h3>
+        <div className="row-scroll">
+          {continueWatching.length === 0 ? <p className="empty-state">Start watching a trailer to build your continue list.</p> : continueWatching.map((movie) => (
+            <MovieCard
+              key={movie.id}
+              movie={movie}
+              onToggleWatchlist={toggleWatchlist}
+              inWatchlist={watchlistIds.has(movie.id)}
+              onAddHistory={addHistory}
+              progress={progressMap[movie.id] || 0}
+              onProgressChange={updateProgress}
+            />
+          ))}
+        </div>
+      </section>
       <section className="special-row">
         <h3>Because You Watched</h3>
         <div className="row-scroll">
@@ -220,6 +287,8 @@ const App = () => {
               onToggleWatchlist={toggleWatchlist}
               inWatchlist={watchlistIds.has(movie.id)}
               onAddHistory={addHistory}
+              progress={progressMap[movie.id] || 0}
+              onProgressChange={updateProgress}
             />
           ))}
         </div>
@@ -242,6 +311,8 @@ const App = () => {
               onToggleWatchlist={toggleWatchlist}
               inWatchlist={watchlistIds.has(movie.id)}
               onAddHistory={addHistory}
+              progress={progressMap[movie.id] || 0}
+              onProgressChange={updateProgress}
             />
           ))}
         </div>
@@ -268,15 +339,25 @@ const App = () => {
               onToggleWatchlist={toggleWatchlist}
               inWatchlist={watchlistIds.has(movie.id)}
               onAddHistory={addHistory}
+              progress={progressMap[movie.id] || 0}
+              onProgressChange={updateProgress}
             />
           ))}
         </div>
       </section>
       <section className="special-row">
         <h3>Continue Watching</h3>
-        <div className="row-scroll mini">
-          {history.length === 0 ? <p className="empty-state">No viewing history yet.</p> : history.map((movie) => (
-            <article key={movie.id} className="chip-card">{movie.title}</article>
+        <div className="row-scroll">
+          {continueWatching.length === 0 ? <p className="empty-state">No viewing history yet.</p> : continueWatching.map((movie) => (
+            <MovieCard
+              key={movie.id}
+              movie={movie}
+              onToggleWatchlist={toggleWatchlist}
+              inWatchlist={watchlistIds.has(movie.id)}
+              onAddHistory={addHistory}
+              progress={progressMap[movie.id] || 0}
+              onProgressChange={updateProgress}
+            />
           ))}
         </div>
       </section>
@@ -348,6 +429,8 @@ const App = () => {
                   onToggleWatchlist={toggleWatchlist}
                   inWatchlist={watchlistIds.has(movie.id)}
                   onAddHistory={addHistory}
+                  progress={progressMap[movie.id] || 0}
+                  onProgressChange={updateProgress}
                 />
               ))}
             </div>
@@ -363,7 +446,16 @@ const App = () => {
         </button>
       </section>
 
-      <MovieModal movie={selectedMovie} isOpen={Boolean(selectedMovie)} onClose={() => setSelectedMovie(null)} onAddHistory={addHistory} />
+      <MovieModal
+        movie={selectedMovie}
+        isOpen={Boolean(selectedMovie)}
+        onClose={() => setSelectedMovie(null)}
+        onAddHistory={addHistory}
+        onToggleWatchlist={toggleWatchlist}
+        inWatchlist={watchlistIds.has(selectedMovie?.id)}
+        progress={progressMap[selectedMovie?.id] || 0}
+        onProgressChange={updateProgress}
+      />
     </main>
   );
 };

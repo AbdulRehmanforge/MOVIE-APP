@@ -2,9 +2,21 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Spinner from './spinner.jsx';
 import { getMovieDetails } from '../services/tmdb.js';
 
-const MovieModal = ({ movie, isOpen, onClose, onAddHistory }) => {
+const MovieModal = ({
+  movie,
+  isOpen,
+  onClose,
+  onAddHistory,
+  onToggleWatchlist,
+  inWatchlist,
+  progress = 0,
+  onProgressChange,
+  autoStart = false,
+}) => {
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [localProgress, setLocalProgress] = useState(progress);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -23,7 +35,35 @@ const MovieModal = ({ movie, isOpen, onClose, onAddHistory }) => {
     load();
   }, [movie?.id, isOpen]);
 
-  const trailer = useMemo(() => details?.videos?.results?.find((v) => v.site === 'YouTube' && v.type === 'Trailer') || null, [details]);
+  useEffect(() => {
+    if (!isOpen) return;
+    setLocalProgress(progress || 0);
+    setIsPlaying(autoStart && (progress || 0) < 100);
+  }, [progress, isOpen, autoStart]);
+
+  useEffect(() => {
+    if (!isOpen || !isPlaying) return undefined;
+    const timer = setInterval(() => {
+      setLocalProgress((prev) => {
+        const next = Math.min(100, prev + 2);
+        if (next >= 100) setIsPlaying(false);
+        return next;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isOpen, isPlaying]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const timeout = setTimeout(() => {
+      onProgressChange?.(details || movie, localProgress);
+    }, 200);
+
+    return () => clearTimeout(timeout);
+  }, [localProgress, details, movie, onProgressChange, isOpen]);
+
+  const trailer = useMemo(() => details?.videos?.results?.find((v) => v.site === 'YouTube' && ['Trailer', 'Teaser'].includes(v.type)) || null, [details]);
   const cast = details?.credits?.cast?.slice(0, 8) || [];
   const recommendations = details?.recommendations?.results?.slice(0, 8) || [];
 
@@ -45,17 +85,35 @@ const MovieModal = ({ movie, isOpen, onClose, onAddHistory }) => {
               <p>{details?.overview || movie.overview}</p>
               <p className="meta-line">⭐ {details?.vote_average?.toFixed(1) || movie.vote_average?.toFixed(1) || 'N/A'} • {details?.runtime || '—'} min • {(details?.genres || []).map((g) => g.name).join(', ')}</p>
 
+              {trailer && (
+                <div className="modal-trailer-wrap">
+                  <iframe
+                    title={`${details?.title || movie.title} trailer`}
+                    src={`https://www.youtube.com/embed/${trailer.key}?autoplay=${isPlaying ? 1 : 0}&mute=1&controls=0&playsinline=1&rel=0`}
+                    allow="autoplay; encrypted-media"
+                  />
+                </div>
+              )}
+
               <div className="modal-actions">
                 {trailer && (
                   <button
                     type="button"
                     onClick={() => {
-                      onAddHistory?.(details || movie);
-                      window.open(`https://www.youtube.com/watch?v=${trailer.key}`, '_blank');
+                      setIsPlaying((prev) => !prev);
+                      onAddHistory?.(details || movie, localProgress || 3);
                     }}
-                  >▶ Play Trailer</button>
+                  >
+                    {isPlaying ? '❚❚ Pause Preview' : (localProgress > 1 ? '▶ Resume Preview' : '▶ Play Preview')}
+                  </button>
                 )}
-                <button type="button" onClick={() => onAddHistory?.(details || movie)}>+ Continue Watching</button>
+                <button type="button" onClick={() => onToggleWatchlist?.(details || movie)}>
+                  {inWatchlist ? '✓ In My List' : '+ Add to My List'}
+                </button>
+              </div>
+              <div className="modal-progress">
+                <span>Progress: {Math.round(localProgress)}%</span>
+                <input type="range" min="0" max="100" value={localProgress} onChange={(event) => setLocalProgress(Number(event.target.value))} />
               </div>
 
               <div className="details-grid">

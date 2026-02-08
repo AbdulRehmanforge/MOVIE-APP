@@ -1,7 +1,7 @@
 import React from 'react';
 import MovieCard from './moviecard.jsx';
 
-const MovieRow = ({ title, movies, watchlistIds, onToggleWatchlist, onAddHistory, onLoadMore }) => {
+const MovieRow = ({ title, movies, watchlistIds, onToggleWatchlist, onAddHistory, onLoadMore, progressMap, onProgressChange }) => {
   return (
     <section className="movie-row">
       <div className="row-header">
@@ -16,6 +16,8 @@ const MovieRow = ({ title, movies, watchlistIds, onToggleWatchlist, onAddHistory
             onToggleWatchlist={onToggleWatchlist}
             inWatchlist={watchlistIds.has(movie.id)}
             onAddHistory={onAddHistory}
+            progress={progressMap[movie.id] || 0}
+            onProgressChange={onProgressChange}
           />
         ))}
       </div>

@@ -95,3 +95,9 @@ export const getSearchSuggestions = async (query) => {
 };
 
 export const getMovieDetails = async (id) => fetchWithCache(`${API_BASE_URL}/movie/${id}?append_to_response=videos,credits,recommendations,similar`);
+
+export const getMovieTrailer = async (id) => {
+  const details = await getMovieDetails(id);
+  const trailer = details?.videos?.results?.find((video) => video.site === 'YouTube' && ['Trailer', 'Teaser'].includes(video.type));
+  return trailer?.key || null;
+};
