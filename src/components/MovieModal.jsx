@@ -66,12 +66,21 @@ const MovieModal = ({
   const trailer = useMemo(() => details?.videos?.results?.find((v) => v.site === 'YouTube' && ['Trailer', 'Teaser'].includes(v.type)) || null, [details]);
   const cast = details?.credits?.cast?.slice(0, 8) || [];
   const recommendations = details?.recommendations?.results?.slice(0, 8) || [];
+  const [animate, setAnimate] = useState(false);
+  useEffect(() => {
+    if (isOpen) {
+      setAnimate(false);
+      setTimeout(() => setAnimate(true), 10);
+    } else {
+      setAnimate(false);
+    }
+  }, [isOpen]);
 
   if (!isOpen || !movie) return null;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-shell" onClick={(event) => event.stopPropagation()}>
+      <div className={`modal-shell${animate ? ' animated' : ''}`} onClick={(event) => event.stopPropagation()}>
         {loading ? <Spinner /> : (
           <>
             <img

@@ -1,0 +1,74 @@
+.trending-movie-popup {
+  position: absolute;
+  left: 50%;
+  bottom: 110%;
+  min-width: 320px;
+  max-width: 520px;
+  width: 32vw;
+  background: #181818;
+  border-radius: 12px;
+  box-shadow: 0 12px 48px #000b, 0 2px 8px #e5091440;
+  z-index: 60;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+  opacity: 0;
+  transform: scale(0.96) translateX(-50%);
+  transition: opacity 0.22s cubic-bezier(.4,1.01,.32,1), transform 0.22s cubic-bezier(.4,1.01,.32,1);
+}
+.trending-movie-popup.popup-visible {
+  opacity: 1;
+  transform: scale(1) translateX(-50%);
+}
+.popup-trailer iframe {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  border: none;
+  background: #000;
+}
+.trailer-unavailable {
+  color: #fff;
+  font-size: 14px;
+  padding: 20px 8px;
+  text-align: center;
+}
+.popup-info {
+  width: 100%;
+  margin-top: 8px;
+}
+.popup-title {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 6px 0;
+}
+.popup-description {
+  color: #c9c9c9;
+  font-size: 13px;
+  margin: 0 0 8px 0;
+  line-height: 1.4;
+}
+.popup-actions {
+  display: flex;
+  gap: 8px;
+}
+.popup-btn {
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-weight: 600;
+  font-size: 13px;
+  background: #23242a;
+  color: #fff;
+  cursor: pointer;
+}
+.popup-btn.play { background: #e50914; }
+.popup-btn:hover { filter: brightness(1.1); }
+@media (max-width: 600px) {
+  .trending-movie-popup {
+    min-width: 220px;
+    width: 70vw;
+  }
+}
