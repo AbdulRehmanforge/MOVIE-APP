@@ -1,0 +1,163 @@
+.profile-selector-netflix {
+  min-height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #141414 60%, #181818 100%);
+  padding: 0;
+  margin: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-heading-netflix {
+  color: #fff;
+  font-size: 5vw;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  margin-bottom: 1.2rem;
+  margin-top: 0.5rem;
+  text-align: center;
+  text-shadow: 0 2px 24px #000a;
+  opacity: 0;
+  animation: fadeInHeading 0.7s cubic-bezier(.22,.68,.43,1.01) 0.1s forwards;
+}
+@keyframes fadeInHeading {
+  to { opacity: 1; }
+}
+
+.profile-row-netflix {
+  display: flex;
+  gap: 2.5vw;
+  justify-content: center;
+  align-items: flex-end;
+  margin-bottom: 2.5rem;
+  flex-wrap: wrap;
+}
+
+.profile-card-netflix {
+  background: none;
+  border: none;
+  outline: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: transform 0.22s cubic-bezier(.22,.68,.43,1.01), filter 0.22s, box-shadow 0.22s;
+  opacity: 0;
+  transform: translateY(40px) scale(0.97);
+  animation: cardStaggerIn 0.7s cubic-bezier(.22,.68,.43,1.01) forwards;
+  animation-delay: var(--delay, 0ms);
+}
+@keyframes cardStaggerIn {
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.profile-card-netflix:focus-visible {
+  box-shadow: 0 0 0 3px #e50914cc;
+}
+.profile-avatar-netflix {
+  width: 200px;
+  height: 200px;
+  .profile-heading-netflix {
+    color: #fff;
+    font-size: 5vw;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    margin-bottom: 1.2rem;
+    margin-top: 0;
+    text-align: center;
+    text-shadow: 0 2px 24px #000a;
+    opacity: 0;
+    animation: fadeInHeading 0.7s cubic-bezier(.22,.68,.43,1.01) 0.1s forwards;
+  }
+  filter: brightness(1.18) saturate(1.1);
+  box-shadow: 0 4px 32px #e5091440, 0 2px 8px #000a;
+  transform: scale(1.05);
+}
+.profile-card-netflix:active .profile-avatar-netflix {
+  transform: scale(0.96);
+}
+.profile-name-netflix {
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 0;
+  text-align: center;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 8px #000a;
+}
+.add-profile-card-netflix {
+  background: none;
+  border: none;
+  outline: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  margin-left: 1vw;
+  opacity: 0;
+  transform: translateY(40px) scale(0.97);
+  animation: cardStaggerIn 0.7s cubic-bezier(.22,.68,.43,1.01) forwards;
+  animation-delay: var(--delay, 0ms);
+}
+.add-avatar-netflix {
+  width: 200px;
+  height: 200px;
+  border-radius: 32px;
+  background: #181818;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3.2rem;
+  color: #bbb !important;
+  box-shadow: 0 2px 16px #000a;
+  margin-bottom: 1.1rem;
+  border: 2px dashed #444;
+  transition: background 0.22s, box-shadow 0.22s, transform 0.22s, color 0.22s, border 0.22s;
+}
+.add-profile-card-netflix:hover .add-avatar-netflix,
+.add-profile-card-netflix:focus .add-avatar-netflix {
+  background: #232323;
+  color: #fff !important;
+  border: 2px dashed #666;
+  box-shadow: 0 4px 32px #0004, 0 2px 8px #000a;
+  transform: scale(1.05);
+}
+.add-profile-card-netflix:active .add-avatar-netflix {
+  transform: scale(0.96);
+}
+.add-profile-label-netflix {
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+  text-align: center;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 8px #000a;
+}
+
+@media (max-width: 900px) {
+  .profile-row-netflix {
+    flex-wrap: wrap;
+    gap: 4vw;
+  }
+  .profile-avatar-netflix, .add-avatar-netflix {
+    width: 120px;
+    height: 120px;
+    border-radius: 18px;
+  }
+}
+@media (max-width: 600px) {
+  .profile-row-netflix {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 5vw;
+  }
+  .profile-avatar-netflix, .add-avatar-netflix {
+    width: 90px;
+    height: 90px;
+    border-radius: 12px;
+  }
+}

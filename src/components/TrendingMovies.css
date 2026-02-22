@@ -1,0 +1,258 @@
+.trending-movie-popup {
+  position: absolute;
+  left: 50%;
+  bottom: 110%;
+  min-width: 320px;
+  max-width: 420px;
+  width: 32vw;
+  background: #181818;
+  border-radius: 1.1em;
+  box-shadow: 0 12px 48px #000b, 0 2px 8px #e5091440;
+  z-index: 100;
+  padding: 0.5em 0.5em 0.7em 0.5em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: auto;
+  opacity: 0;
+  transform: scale(0.96) translate(-50%, 0);
+  transition: opacity 0.22s cubic-bezier(.4,1.01,.32,1), transform 0.22s cubic-bezier(.4,1.01,.32,1);
+}
+.trending-movie-popup.popup-visible {
+  opacity: 1;
+  transform: scale(1) translate(-50%, 0);
+}
+.trending-movie-popup.popup-hidden {
+  opacity: 0;
+  transform: scale(0.96) translate(-50%, 0);
+}
+/* Trailer preview popup for Top 10 Netflix style */
+.trailer-preview-popup {
+  position: absolute;
+  left: 50%;
+  bottom: 110%;
+  transform: translateX(-50%) scale(0.98);
+  min-width: 320px;
+  max-width: 420px;
+  width: 32vw;
+  background: #181818;
+  border-radius: 1.1em;
+  box-shadow: 0 12px 48px #000b, 0 2px 8px #e5091440;
+  z-index: 10;
+  padding: 0.5em 0.5em 0.7em 0.5em;
+  animation: trailerPopupIn 0.32s cubic-bezier(.4,1.01,.32,1) both;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+.trailer-preview-popup iframe {
+  width: 100%;
+  aspect-ratio: 16/9;
+  border-radius: 0.7em;
+  border: none;
+  background: #000;
+  pointer-events: auto;
+}
+.trailer-loading, .trailer-unavailable {
+  color: #fff;
+  font-size: 1.1em;
+  padding: 1.5em 0.5em;
+  text-align: center;
+}
+@keyframes trailerPopupIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.85) translateY(30px);
+    filter: blur(2px) brightness(0.7);
+  }
+  80% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.04) translateY(-8px);
+    filter: blur(0.5px) brightness(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1) translateY(0);
+    filter: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .trailer-preview-popup {
+    min-width: 180px;
+    max-width: 98vw;
+    width: 70vw;
+    font-size: 0.92em;
+    padding: 0.2em 0.2em 0.4em 0.2em;
+  }
+}
+
+.trending-movies-section {
+  background: linear-gradient(180deg, #181818 80%, #111 100%);
+  padding: 2rem 0 2.5rem 0;
+  margin-bottom: 2rem;
+  /* overflow: hidden; */
+}
+
+.fade-slide-in {
+  opacity: 0;
+  transform: translateY(40px);
+  animation: fadeSlideIn 0.7s cubic-bezier(.4,1.01,.32,1) 0.1s forwards;
+}
+@keyframes fadeSlideIn {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.trending-title {
+  color: #fff;
+  font-size: 2rem;
+  font-weight: 700;
+  margin-left: 2vw;
+  margin-bottom: 1.2rem;
+}
+
+
+.trending-movies-row {
+  display: flex;
+  gap: 0.5vw;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding: 0 2vw;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  scroll-behavior: smooth;
+  user-select: none;
+  cursor: grab;
+  align-items: flex-end;
+  position: relative;
+  min-height: 260px;
+  /* overflow: visible; */
+}
+.trending-movies-row:active {
+  cursor: grabbing;
+}
+.trending-movies-row::-webkit-scrollbar {
+  display: none;
+}
+
+
+.trending-movie-card {
+  position: relative;
+  min-width: 180px;
+  max-width: 220px;
+  width: 18vw;
+  aspect-ratio: 2/3;
+  background: transparent;
+  cursor: pointer;
+  scroll-snap-align: start;
+  transition: transform 0.25s cubic-bezier(.4,1.01,.32,1), box-shadow 0.25s;
+  outline: none;
+  opacity: 0;
+  transform: translateY(30px) scale(0.97);
+  animation: trending-fade-in 0.4s forwards;
+  margin-left: 0;
+  margin-right: 2vw;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  overflow: visible;
+}
+.trending-movie-card:last-child {
+  margin-right: 0;
+}
+.trending-movie-card:focus,
+.trending-movie-card:hover {
+  transform: translateY(-8px) scale(1.05);
+  box-shadow: 0 12px 40px 0 #e5091460, 0 2px 12px #000a;
+  z-index: 3;
+}
+.trending-movie-card:hover ~ .trending-movie-card {
+  filter: blur(1.5px) grayscale(0.2) brightness(0.92);
+}
+
+
+.trending-rank.netflix-rank {
+  position: absolute;
+  left: -2.5em;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 8em;
+  font-family: Impact, Bebas Neue, Arial Black, sans-serif;
+  font-weight: 900;
+  color: #f0f0f0;
+  background: linear-gradient(90deg, #e50914 60%, #fff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  opacity: 0.25;
+  z-index: 1;
+  pointer-events: none;
+  user-select: none;
+  text-shadow: 0 4px 12px #000a, 0 1px 0 #fff8;
+  transition: transform 0.3s cubic-bezier(.4,1.01,.32,1);
+  line-height: 1;
+}
+
+
+.trending-movie-poster {
+  position: relative;
+  left: -2.5em;
+  width: 125%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 1.1em;
+  box-shadow: 0 6px 24px #000a, 0 1.5px 0 #fff2;
+  z-index: 3;
+  background: #222;
+  transition: box-shadow 0.2s, filter 0.2s, transform 0.2s;
+  will-change: transform, box-shadow;
+}
+
+
+@media (max-width: 900px) {
+  .trending-movie-card {
+    min-width: 90px;
+    max-width: 120px;
+    width: 24vw;
+    margin-left: 0;
+    margin-right: 1vw;
+  }
+  .trending-rank.netflix-rank {
+    font-size: 3.8em;
+    left: -1.2em;
+  }
+  .trending-movie-poster {
+    left: -1.2em;
+    width: 110%;
+  }
+}
+@media (max-width: 600px) {
+  .trending-movie-card {
+    min-width: 60px;
+    max-width: 80px;
+    width: 32vw;
+    margin-left: 0;
+    margin-right: 0.5vw;
+  }
+  .trending-rank.netflix-rank {
+    font-size: 2.2em;
+    left: -0.7em;
+  }
+  .trending-movie-poster {
+    left: -0.7em;
+    width: 105%;
+  }
+}
+
+@keyframes trending-fade-in {
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

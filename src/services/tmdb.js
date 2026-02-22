@@ -98,6 +98,12 @@ export const getMovieDetails = async (id) => fetchWithCache(`${API_BASE_URL}/mov
 
 export const getMovieTrailer = async (id) => {
   const details = await getMovieDetails(id);
-  const trailer = details?.videos?.results?.find((video) => video.site === 'YouTube' && ['Trailer', 'Teaser'].includes(video.type));
+  if (!details?.videos?.results?.length) return null;
+  const videos = details.videos.results.filter((v) => v.site === 'YouTube');
+  let trailer = videos.find((v) => v.type === 'Trailer' && v.official);
+  if (!trailer) trailer = videos.find((v) => v.type === 'Trailer');
+  if (!trailer) trailer = videos.find((v) => v.type === 'Teaser' && v.official);
+  if (!trailer) trailer = videos.find((v) => v.type === 'Teaser');
+  if (!trailer) trailer = videos[0];
   return trailer?.key || null;
 };

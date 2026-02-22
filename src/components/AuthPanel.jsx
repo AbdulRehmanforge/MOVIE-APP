@@ -24,22 +24,22 @@ const AuthPanel = ({ onLogin, onRegister }) => {
 
   return (
     <main className="auth-shell">
-      <div className="auth-backdrop" />
-      <header className="auth-header">
-        <h1 className="auth-brand">NETFLIX</h1>
+      <div className="auth-backdrop cinematic-bg" />
+      <header className="auth-header fade-in">
+        <h1 className="auth-brand cinematic-glow">NETFLIX</h1>
         <div className="auth-header-actions">
           <button type="button" className="auth-lang-btn">English</button>
           <button type="button" className="auth-signin-btn" onClick={() => setMode('login')}>Sign In</button>
         </div>
       </header>
 
-      <section className="auth-hero-copy">
-        <h2>Unlimited movies, TV shows, and more</h2>
-        <p>Starts at USD 7.99. Cancel anytime.</p>
-        <small>Ready to watch? Create an account or sign in to continue your streaming experience.</small>
+      <section className="auth-hero-copy fade-in-delayed">
+        <h2 className="cinematic-title">Unlimited movies, TV shows, and more</h2>
+        <p className="cinematic-sub">Starts at USD 7.99. Cancel anytime.</p>
+        <small className="cinematic-small">Ready to watch? Create an account or sign in to continue your streaming experience.</small>
       </section>
 
-      <div className="auth-card">
+      <div className="auth-card card-pop-in">
         <h3>{mode === 'login' ? 'Sign In' : 'Create Account'}</h3>
         <p className="auth-subtitle">
           {mode === 'login' ? 'Sign in to continue watching your personalized library.' : 'Create your account to save watchlists and continue watching.'}
@@ -58,6 +58,7 @@ const AuthPanel = ({ onLogin, onRegister }) => {
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
+              className="input-animate"
             />
           )}
 
@@ -67,6 +68,7 @@ const AuthPanel = ({ onLogin, onRegister }) => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            className="input-animate"
           />
 
           <input
@@ -76,15 +78,19 @@ const AuthPanel = ({ onLogin, onRegister }) => {
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={6}
+            className="input-animate"
           />
 
           {error && <p className="error-message">{error}</p>}
 
-          <button className="auth-submit" type="submit">
+          <button className="auth-submit btn-glow" type="submit">
             {mode === 'login' ? 'Sign In' : 'Get Started'}
           </button>
         </form>
       </div>
+
+      {}
+      <div className="cinematic-overlay" />
     </main>
   );
 };
